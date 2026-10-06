@@ -258,6 +258,9 @@ footer p.desc{margin-top:18px;font-size:13.5px;max-width:280px;line-height:1.7;c
 .submit-btn::before{content:"";position:absolute;inset:0;background:#0E6B48;transform:translateX(-101%);transition:transform .4s cubic-bezier(.65,0,.35,1);}
 .submit-btn:hover::before{transform:translateX(0);}
 
+.submit-btn:disabled{opacity:.6;cursor:wait;}
+.form-error{font-size:13.5px;color:#B3261E;margin:0 0 16px;}
+#formulaire{scroll-margin-top:var(--header-h, 80px);}
 #contact-form.hidden{display:none;}
 .success-box{display:none;padding:40px 0;}
 .success-box.show{display:block;}

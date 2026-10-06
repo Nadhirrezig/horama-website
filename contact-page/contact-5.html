@@ -73,7 +73,7 @@
   </div>
 </section>
 
-<section class="section-light">
+<section class="section-light" id="formulaire">
   <div class="wrap">
     <div class="contact-grid">
 
@@ -108,6 +108,8 @@
             <textarea id="f-message" name="message" required placeholder="Décrivez en quelques lignes votre contexte et vos objectifs..."></textarea>
           </div>
           <input type="hidden" name="_subject" value="Nouveau contact — site HORAMA">
+          <input type="text" name="_gotcha" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;">
+          <p class="form-error" id="form-error" role="alert" hidden></p>
           <button type="submit" class="submit-btn" data-cursor><span>Envoyer le message →</span></button>
         </form>
 

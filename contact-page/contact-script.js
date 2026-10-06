@@ -13,7 +13,22 @@ document.querySelectorAll('[data-cursor], a, button').forEach(el=>{
   el.addEventListener('mouseleave', ()=> document.body.classList.remove('hovering'));
 });
 
-window.addEventListener('load', ()=> document.getElementById('hero').classList.add('loaded'));
+window.addEventListener('load', ()=>{
+  const hero = document.getElementById('hero'); // not present on this page
+  if(hero) hero.classList.add('loaded');
+
+  // glide down to the form once the hero has had a moment to animate in;
+  // skipped if the visitor has already scrolled (e.g. reload mid-page)
+  const formSection = document.getElementById('formulaire');
+  if(!formSection) return;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  setTimeout(()=>{
+    if(window.scrollY > 10) return;
+    const headerH = document.getElementById('site-header').offsetHeight;
+    const top = formSection.getBoundingClientRect().top + window.scrollY - headerH;
+    window.scrollTo({ top, behavior: reduceMotion ? 'auto' : 'smooth' });
+  }, 900);
+});
 
 const header = document.getElementById('site-header');
 window.addEventListener('scroll', ()=> header.classList.toggle('scrolled', window.scrollY > 40));
@@ -157,7 +172,7 @@ if(phoneSelect){
     opt.value = country.c;
     opt.dataset.digits = country.d;
     opt.textContent = `${country.n} (${country.c})`;
-    if(country.n === 'Tunisie') opt.selected = true;
+    if(country.n === 'Tunisie') opt.defaultSelected = true; // defaultSelected so form.reset() returns to Tunisie
     phoneSelect.appendChild(opt);
   });
 
@@ -171,6 +186,9 @@ if(phoneSelect){
   }
   phoneSelect.addEventListener('change', updatePhoneConstraint);
   updatePhoneConstraint();
+
+  // digits only — strips spaces, dashes, letters as the user types or pastes
+  phoneInput.addEventListener('input', ()=>{ phoneInput.value = phoneInput.value.replace(/\D/g, ''); });
 }
 
 // ---------- form submission — Formspree (free, no backend), mailto fallback ----------
@@ -191,25 +209,53 @@ function showSuccess(){
 }
 
 if(form){
+  const submitBtn = form.querySelector('.submit-btn');
+  const submitLabel = submitBtn.querySelector('span');
+  const formError = document.getElementById('form-error');
+  const FAIL_MSG = "L'envoi a échoué — merci de réessayer ou de nous écrire directement à contact@horama.tn";
+
+  function showError(msg){ formError.textContent = msg; formError.hidden = false; }
+
   form.addEventListener('submit', async (e)=>{
     e.preventDefault();
-    const data = new FormData(form);
-    const notConfigured = form.action.includes('VOTRE_ID_FORMSPREE');
+    if(submitBtn.disabled) return; // ignore double-clicks while a request is in flight
+    formError.hidden = true;
 
+    const data = new FormData(form);
+    // merge the indicatif + number into one readable field; drop it entirely when left empty
+    const number = (data.get('phone_number') || '').trim();
+    data.delete('phone_code');
+    data.delete('phone_number');
+    if(number) data.set('phone', `${phoneSelect.value} ${number}`);
+
+    const notConfigured = form.action.includes('VOTRE_ID_FORMSPREE');
     if(notConfigured){
-      const phone = data.get('phone_number') ? `${data.get('phone_code')} ${data.get('phone_number')}` : '—';
-      const body = `Nom: ${data.get('name')}\nSociété: ${data.get('company')}\nEmail: ${data.get('email')}\nTéléphone: ${phone}\n\n${data.get('message')}`;
+      const body = `Nom: ${data.get('name')}\nSociété: ${data.get('company') || '—'}\nEmail: ${data.get('email')}\nTéléphone: ${data.get('phone') || '—'}\n\n${data.get('message')}`;
       window.location.href = `mailto:contact@horama.tn?subject=${encodeURIComponent('Nouveau contact — site HORAMA')}&body=${encodeURIComponent(body)}`;
       showSuccess();
       return;
     }
 
+    submitBtn.disabled = true;
+    const label = submitLabel.textContent;
+    submitLabel.textContent = 'Envoi en cours…';
+
     try{
       const res = await fetch(form.action, { method:'POST', body:data, headers:{'Accept':'application/json'} });
-      if(res.ok){ showSuccess(); }
-      else { alert("L'envoi a échoué — merci de réessayer ou de nous écrire directement à contact@horama.tn"); }
+      if(res.ok){
+        form.reset();
+        showSuccess();
+      } else {
+        // Formspree returns {errors:[{message}]} on validation failures
+        const json = await res.json().catch(()=> ({}));
+        const details = (json.errors || []).map(er => er.message).join(' · ');
+        showError(details ? `${FAIL_MSG} (${details})` : FAIL_MSG);
+      }
     }catch(err){
-      alert("L'envoi a échoué — merci de réessayer ou de nous écrire directement à contact@horama.tn");
+      showError(FAIL_MSG);
+    }finally{
+      submitBtn.disabled = false;
+      submitLabel.textContent = label;
     }
   });
 }
